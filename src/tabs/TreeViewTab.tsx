@@ -10,10 +10,22 @@ import Chip from '@mui/material/Chip';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import ToggleButton from '@mui/material/ToggleButton';
+import MyLocationRoundedIcon from '@mui/icons-material/MyLocationRounded';
+import CasinoRoundedIcon from '@mui/icons-material/CasinoRounded';
+import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded';
+import UnfoldLessRoundedIcon from '@mui/icons-material/UnfoldLessRounded';
+import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
+import HubRoundedIcon from '@mui/icons-material/HubRounded';
+import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
+import StopRoundedIcon from '@mui/icons-material/StopRounded';
 import { RichTreeViewPro, useRichTreeViewProApiRef } from '@mui/x-tree-view-pro';
 import { generateTree, getVisibleFlatList, type TreeNode } from '../data/tree';
 import { statusStore, useStatusVersion } from '../data/statusStore';
+import { STATUSES, statusVar } from '../data/colors';
 import { StatusTreeItem } from '../components/StatusTreeItem';
+import SectionCard from '../components/SectionCard';
+import StatTile from '../components/StatTile';
+import { V } from '../theme';
 
 const TREE = generateTree();
 statusStore.seed(TREE.allIds);
@@ -123,29 +135,39 @@ export default function TreeViewTab() {
   return (
     <Stack
       direction={{ xs: 'column', md: 'row' }}
-      spacing={2}
+      spacing={2.5}
       sx={{ height: '100%', minHeight: 0, alignItems: 'stretch' }}
     >
       {/* Left column — the test controls. Scrolls on its own so the tree keeps the full height. */}
       <Stack
         spacing={2}
         sx={{
-          width: { xs: '100%', md: 420 },
+          width: { xs: '100%', md: 430 },
           flexShrink: 0,
           minHeight: 0,
           overflowY: 'auto',
+          pr: { md: 0.5 },
         }}
       >
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            Test 1 — virtualized tree + go to item by id
-          </Typography>
-          <Stack
-            direction="row"
-            spacing={1}
-            useFlexGap
-            sx={{ alignItems: 'center', flexWrap: 'wrap' }}
-          >
+        <Stack direction="row" spacing={1.5}>
+          <StatTile label="Nodes" value={TREE.allIds.length.toLocaleString()} accent="#6366f1" />
+          <StatTile label="Rendered rows" value={visibleCount.toLocaleString()} accent="#06b6d4" />
+          <StatTile label="Selected" value={selectedItems ?? '—'} accent="#a855f7" mono />
+        </Stack>
+
+        <SectionCard
+          step="TEST 1"
+          icon={<MyLocationRoundedIcon />}
+          title="Virtualized tree + go to item by id"
+          footnote={
+            <React.Fragment>
+              {TREE.allIds.length.toLocaleString()} nodes across 4 levels ·{' '}
+              {TREE.branchIds.length.toLocaleString()} branches · ids are dotted paths, so{' '}
+              <code>7.2.9.5</code> is the 5th leaf of the 9th group of the 2nd group of root 7.
+            </React.Fragment>
+          }
+        >
+          <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
             <Box component="form" onSubmit={handleGoTo} sx={{ display: 'flex', gap: 1 }}>
               <TextField
                 size="small"
@@ -153,19 +175,23 @@ export default function TreeViewTab() {
                 placeholder="e.g. 7.2.9.5"
                 value={goTo}
                 onChange={(event) => setGoTo(event.target.value)}
-                sx={{ width: 200 }}
+                sx={{ width: 190 }}
               />
               <Button type="submit" variant="contained">
                 Go &amp; select
               </Button>
             </Box>
-            <Button variant="outlined" onClick={randomLeaf}>
+            <Button variant="outlined" startIcon={<CasinoRoundedIcon />} onClick={randomLeaf}>
               Random deep id
             </Button>
-            <Button variant="outlined" onClick={expandAll}>
+            <Button variant="outlined" startIcon={<UnfoldMoreRoundedIcon />} onClick={expandAll}>
               Expand all
             </Button>
-            <Button variant="outlined" onClick={() => setExpandedItems([])}>
+            <Button
+              variant="outlined"
+              startIcon={<UnfoldLessRoundedIcon />}
+              onClick={() => setExpandedItems([])}
+            >
               Collapse all
             </Button>
             <FormControlLabel
@@ -178,29 +204,31 @@ export default function TreeViewTab() {
               label="Virtualization"
             />
           </Stack>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            {TREE.allIds.length.toLocaleString()} nodes across 4 levels ·{' '}
-            {visibleCount.toLocaleString()} currently rendered rows · selected:{' '}
-            {selectedItems ?? 'none'}
-          </Typography>
-        </Paper>
+        </SectionCard>
 
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            Test 3 — flip every status colour at X Hz
-          </Typography>
-          <Stack
-            direction="row"
-            spacing={2}
-            useFlexGap
-            sx={{ alignItems: 'center', flexWrap: 'wrap' }}
-          >
+        <SectionCard
+          step="TEST 3"
+          icon={<BoltRoundedIcon />}
+          title="Flip every status colour at X Hz"
+          action={<Chip label={`${version} ticks`} size="small" variant="outlined" />}
+          footnote={
+            <React.Fragment>
+              Statuses live in an external store, so a tick re-renders only the dots that are
+              actually mounted (~20 of {TREE.allIds.length.toLocaleString()}) instead of the whole
+              tree. Clamped to 0.1–60 Hz.
+            </React.Fragment>
+          }
+        >
+          <Stack direction="row" spacing={2} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
             <ToggleButton
               value="run"
               selected={running}
               onChange={() => setRunning((prev) => !prev)}
               color="primary"
+              size="small"
+              sx={{ px: 1.5, gap: 0.75 }}
             >
+              {running ? <StopRoundedIcon fontSize="small" /> : <PlayArrowRoundedIcon fontSize="small" />}
               {running ? `Stop (${hz} Hz)` : 'Start colour flipping'}
             </ToggleButton>
             <TextField
@@ -210,16 +238,30 @@ export default function TreeViewTab() {
               value={hz}
               onChange={(event) => setHz(Number(event.target.value) || 0.1)}
               slotProps={{ htmlInput: { min: 0.1, max: 60, step: 0.5 } }}
-              sx={{ width: 160 }}
+              sx={{ width: 140 }}
             />
-            <Chip label={`ticks: ${version}`} size="small" />
           </Stack>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            Statuses live in an external store, so a tick re-renders only the dots that are actually
-            mounted (~20 of {TREE.allIds.length.toLocaleString()}) instead of the whole tree. Clamped
-            to 0.1–60 Hz.
-          </Typography>
-        </Paper>
+
+          {/* The status legend doubles as a live swatch of the current colour scheme. */}
+          <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: 'wrap', mt: 1.5 }}>
+            {STATUSES.map((status) => (
+              <Stack key={status} direction="row" spacing={0.75} sx={{ alignItems: 'center' }}>
+                <Box
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    bgcolor: statusVar(status),
+                    boxShadow: `0 0 6px ${statusVar(status)}`,
+                  }}
+                />
+                <Typography variant="caption" color="text.secondary">
+                  {status}
+                </Typography>
+              </Stack>
+            ))}
+          </Stack>
+        </SectionCard>
 
         {message && (
           <Alert severity="info" onClose={() => setMessage(null)}>
@@ -231,12 +273,36 @@ export default function TreeViewTab() {
       {/* Right column — the tree, filling the whole available height. */}
       <Paper
         variant="outlined"
-        sx={{ flex: 1, minWidth: 0, minHeight: 420, p: 1, overflow: 'hidden' }}
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: 420,
+          p: 1,
+          overflow: 'hidden',
+          // Flex column so the tree gets whatever height the caption leaves,
+          // instead of a hard-coded `calc()`.
+          display: 'flex',
+          flexDirection: 'column',
+        }}
       >
-        <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
-          Test 2 — single active item (no checkboxes) · name on the left, status dot and ⋮ menu on
-          the right
-        </Typography>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{ alignItems: 'center', px: 1, py: 0.75, flexShrink: 0 }}
+        >
+          <HubRoundedIcon sx={{ fontSize: 16, color: 'primary.main' }} />
+          <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+            <strong>Test 2</strong> — single active item (no checkboxes) · name left, id, status dot
+            and ⋮ menu right
+          </Typography>
+          <Chip
+            size="small"
+            variant="outlined"
+            label={virtualization ? 'virtualized' : 'all rows mounted'}
+            color={virtualization ? 'default' : 'warning'}
+          />
+        </Stack>
+
         <RichTreeViewPro<TreeNode, false>
           ref={rootRef}
           apiRef={apiRef}
@@ -264,9 +330,23 @@ export default function TreeViewTab() {
             } as never,
           }}
           sx={{
-            height: 'calc(100% - 24px)',
+            flex: 1,
+            minHeight: 0,
             overflowY: 'auto',
-            '& .MuiTreeItem-content': { borderRadius: 1 },
+            '& .MuiTreeItem-content': {
+              borderRadius: 2,
+              paddingBlock: 0.25,
+              transition: 'background-color 120ms, box-shadow 120ms',
+            },
+            // Reveal the row's ⋮ button only where the pointer or focus is.
+            '& .MuiTreeItem-content:hover .StatusTreeItem-menuButton, & .MuiTreeItem-content.Mui-focused .StatusTreeItem-menuButton':
+              { opacity: 1 },
+            '& .MuiTreeItem-content.Mui-selected, & .MuiTreeItem-content.Mui-selected:hover': {
+              backgroundColor: V.primaryA(0.16),
+              boxShadow: `inset 2px 0 0 ${V.primary}`,
+              fontWeight: 600,
+            },
+            '& .MuiTreeItem-content.Mui-focused': { backgroundColor: V.primaryA(0.1) },
           }}
         />
       </Paper>

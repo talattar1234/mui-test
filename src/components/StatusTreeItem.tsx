@@ -2,37 +2,55 @@ import * as React from 'react';
 import Box from '@mui/material/Box';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import { TreeItem, type TreeItemProps } from '@mui/x-tree-view-pro';
 import { useTreeItemModel } from '@mui/x-tree-view-pro';
-import { STATUS_HEX } from '../data/colors';
+import { STATUSES, statusVar } from '../data/colors';
 import { statusStore, useItemStatus } from '../data/statusStore';
 import type { TreeNode } from '../data/tree';
 
-/** The coloured dot. Subscribes to one id so a Hz tick only re-renders the dots. */
+/**
+ * The coloured dot. Subscribes to one id so a Hz tick only re-renders the dots.
+ *
+ * Both the fill and the glow are the same CSS variable, so the dot re-colours
+ * itself when the colour scheme flips without this component re-rendering.
+ * The glow is a static box-shadow rather than an animation on purpose — this
+ * tab measures repaint cost, and a permanently animating dot would tax it.
+ */
 function StatusDot({ itemId }: { itemId: string }) {
   const status = useItemStatus(itemId);
+  const color = statusVar(status);
+
   return (
     <Tooltip title={`status: ${status}`} disableInteractive>
       <Box
         component="span"
         sx={{
-          width: 10,
-          height: 10,
+          width: 9,
+          height: 9,
           borderRadius: '50%',
           flexShrink: 0,
-          bgcolor: STATUS_HEX[status],
+          bgcolor: color,
           // A short transition makes fast frequencies readable instead of jarring.
-          transition: 'background-color 90ms linear',
-          boxShadow: '0 0 0 1px rgba(0,0,0,0.15)',
+          transition: 'background-color 90ms linear, box-shadow 90ms linear',
+          boxShadow: `0 0 0 1px var(--dot-ring), 0 0 7px ${color}`,
         }}
       />
     </Tooltip>
   );
 }
 
-function ItemMenu({ itemId, onAction }: { itemId: string; onAction: (action: string, itemId: string) => void }) {
+function ItemMenu({
+  itemId,
+  onAction,
+}: {
+  itemId: string;
+  onAction: (action: string, itemId: string) => void;
+}) {
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
   const close = (event?: React.SyntheticEvent) => {
@@ -51,6 +69,7 @@ function ItemMenu({ itemId, onAction }: { itemId: string; onAction: (action: str
         role="button"
         tabIndex={-1}
         aria-label={`actions for ${itemId}`}
+        className="StatusTreeItem-menuButton"
         onClick={(event: React.MouseEvent<HTMLSpanElement>) => {
           // Without this the click would toggle expansion / selection instead.
           event.stopPropagation();
@@ -61,12 +80,17 @@ function ItemMenu({ itemId, onAction }: { itemId: string; onAction: (action: str
           display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: 24,
-          height: 24,
+          width: 22,
+          height: 22,
           borderRadius: '50%',
           cursor: 'pointer',
           color: 'text.secondary',
-          '&:hover': { bgcolor: 'action.selected' },
+          // Dimmed until the row is hovered (see the rule on the tree's `sx`) or
+          // the menu is open. Never fully hidden, so it is not an invisible target.
+          opacity: anchorEl ? 1 : 0.4,
+          transition: 'opacity 140ms, background-color 140ms',
+          '&:hover': { bgcolor: 'action.selected', color: 'text.primary' },
+          '& .MuiSvgIcon-root': { fontSize: 16 },
         }}
       >
         <MoreVertIcon fontSize="small" />
@@ -76,8 +100,9 @@ function ItemMenu({ itemId, onAction }: { itemId: string; onAction: (action: str
         open={Boolean(anchorEl)}
         onClose={() => close()}
         onClick={(event) => event.stopPropagation()}
+        slotProps={{ paper: { sx: { minWidth: 190 } } }}
       >
-        {(['ok', 'warning', 'error', 'idle', 'running'] as const).map((status) => (
+        {STATUSES.map((status) => (
           <MenuItem
             key={status}
             onClick={(event) => {
@@ -85,16 +110,32 @@ function ItemMenu({ itemId, onAction }: { itemId: string; onAction: (action: str
               close(event);
             }}
           >
+            <ListItemIcon sx={{ minWidth: 26 }}>
+              <Box
+                component="span"
+                sx={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: '50%',
+                  bgcolor: statusVar(status),
+                  boxShadow: `0 0 6px ${statusVar(status)}`,
+                }}
+              />
+            </ListItemIcon>
             Set status: {status}
           </MenuItem>
         ))}
+        <Divider sx={{ my: 0.5 }} />
         <MenuItem
           onClick={(event) => {
             onAction('copy-id', itemId);
             close(event);
           }}
         >
-          Copy id ({itemId})
+          <ListItemIcon sx={{ minWidth: 26 }}>
+            <ContentCopyRoundedIcon sx={{ fontSize: 15 }} />
+          </ListItemIcon>
+          Copy id&nbsp;<code>{itemId}</code>
         </MenuItem>
       </Menu>
     </React.Fragment>
@@ -124,15 +165,7 @@ export const StatusTreeItem = React.forwardRef(function StatusTreeItem(
       {...other}
       ref={ref}
       label={
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            minWidth: 0,
-            width: '100%',
-          }}
-        >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, width: '100%' }}>
           <Box
             component="span"
             sx={{
@@ -144,6 +177,18 @@ export const StatusTreeItem = React.forwardRef(function StatusTreeItem(
             }}
           >
             {item?.label ?? itemId}
+          </Box>
+          <Box
+            component="code"
+            sx={{
+              flexShrink: 0,
+              fontSize: 10.5,
+              color: 'text.secondary',
+              opacity: 0.65,
+              display: { xs: 'none', lg: 'block' },
+            }}
+          >
+            {itemId}
           </Box>
           <StatusDot itemId={itemId} />
           <ItemMenu itemId={itemId} onAction={onAction ?? (() => {})} />

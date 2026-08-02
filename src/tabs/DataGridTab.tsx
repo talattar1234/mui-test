@@ -10,6 +10,14 @@ import Alert from '@mui/material/Alert';
 import Switch from '@mui/material/Switch';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Tooltip from '@mui/material/Tooltip';
+import MyLocationRoundedIcon from '@mui/icons-material/MyLocationRounded';
+import CasinoRoundedIcon from '@mui/icons-material/CasinoRounded';
+import FilterAltRoundedIcon from '@mui/icons-material/FilterAltRounded';
+import ViewColumnRoundedIcon from '@mui/icons-material/ViewColumnRounded';
+import WorkspacesRoundedIcon from '@mui/icons-material/WorkspacesRounded';
+import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
+import ClearRoundedIcon from '@mui/icons-material/ClearRounded';
+import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded';
 import {
   DataGridPro,
   useGridApiRef,
@@ -25,8 +33,18 @@ import {
   type GridRowId,
   type GridRowsProp,
 } from '@mui/x-data-grid-pro';
-import { COLOR_HEX, STATUS_HEX, type FavoriteColor, type Status } from '../data/colors';
+import {
+  COLOR_HEX,
+  STATUS_HEX,
+  colorVar,
+  statusVar,
+  type FavoriteColor,
+  type Status,
+} from '../data/colors';
 import { generatePeople, type Person } from '../data/people';
+import SectionCard from '../components/SectionCard';
+import StatTile from '../components/StatTile';
+import { V } from '../theme';
 
 const ALL_PEOPLE = generatePeople();
 
@@ -46,20 +64,21 @@ const SELECTION_NAV_KEYS = new Set([
   'PageDown',
 ]);
 
-function ColorSwatch({ value }: { value: FavoriteColor }) {
+/** A dot + label pair, used for both the colour and the status columns. */
+function Swatch({ color, label }: { color: string; label: string }) {
   return (
     <Stack direction="row" spacing={1} sx={{ alignItems: 'center', height: '100%' }}>
       <Box
         sx={{
-          width: 12,
-          height: 12,
+          width: 10,
+          height: 10,
           borderRadius: '50%',
-          bgcolor: COLOR_HEX[value],
-          border: '1px solid rgba(0,0,0,0.2)',
+          bgcolor: color,
+          boxShadow: `0 0 0 1px var(--dot-ring), 0 0 6px ${color}`,
           flexShrink: 0,
         }}
       />
-      <span>{value}</span>
+      <span>{label}</span>
     </Stack>
   );
 }
@@ -137,8 +156,18 @@ export default function DataGridTab() {
 
   const columns = React.useMemo<GridColDef<Person>[]>(
     () => [
-      { field: 'id', headerName: 'ID', type: 'number', width: 90 },
-      { field: 'code', headerName: 'Code', width: 110 },
+      { field: 'id', headerName: 'ID', type: 'number', width: 80 },
+      {
+        field: 'code',
+        headerName: 'Code',
+        width: 110,
+        renderCell: (params) =>
+          params.value ? (
+            <Box component="code" sx={{ fontSize: 12, color: 'text.secondary' }}>
+              {params.value as string}
+            </Box>
+          ) : null,
+      },
       { field: 'firstName', headerName: 'First name', width: 130 },
       { field: 'lastName', headerName: 'Last name', width: 140 },
       {
@@ -148,7 +177,12 @@ export default function DataGridTab() {
         type: 'singleSelect',
         valueOptions: Object.keys(COLOR_HEX),
         renderCell: (params) =>
-          params.value ? <ColorSwatch value={params.value as FavoriteColor} /> : null,
+          params.value ? (
+            <Swatch
+              color={colorVar(params.value as FavoriteColor)}
+              label={params.value as string}
+            />
+          ) : null,
       },
       {
         field: 'department',
@@ -161,7 +195,7 @@ export default function DataGridTab() {
       },
       { field: 'country', headerName: 'Country', width: 120 },
       { field: 'city', headerName: 'City', width: 130 },
-      { field: 'age', headerName: 'Age', type: 'number', width: 90 },
+      { field: 'age', headerName: 'Age', type: 'number', width: 80 },
       {
         field: 'salary',
         headerName: 'Salary',
@@ -178,22 +212,11 @@ export default function DataGridTab() {
         valueOptions: Object.keys(STATUS_HEX),
         renderCell: (params) =>
           params.value ? (
-            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', height: '100%' }}>
-              <Box
-                sx={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: '50%',
-                  bgcolor: STATUS_HEX[params.value as Status],
-                  flexShrink: 0,
-                }}
-              />
-              <span>{params.value as string}</span>
-            </Stack>
+            <Swatch color={statusVar(params.value as Status)} label={params.value as string} />
           ) : null,
       },
       { field: 'joinedAt', headerName: 'Joined', type: 'date', width: 120 },
-      { field: 'active', headerName: 'Active', type: 'boolean', width: 100 },
+      { field: 'active', headerName: 'Active', type: 'boolean', width: 90 },
     ],
     [],
   );
@@ -323,6 +346,10 @@ export default function DataGridTab() {
     });
   };
 
+  const hiddenColumnCount = Object.entries(columnVisibilityModel).filter(
+    ([, visible]) => visible === false,
+  ).length;
+
   return (
     /*
       Two columns: the tests scroll on the left, the grid takes the whole height of
@@ -333,7 +360,7 @@ export default function DataGridTab() {
       sx={{
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' },
-        gap: 2,
+        gap: 2.5,
         height: { xs: 'auto', md: '100%' },
         minHeight: 0,
       }}
@@ -341,17 +368,31 @@ export default function DataGridTab() {
       <Stack
         spacing={2}
         sx={{
-          width: { xs: '100%', md: 400 },
+          width: { xs: '100%', md: 410 },
           flexShrink: 0,
           minHeight: 0,
           overflowY: { md: 'auto' },
           pr: { md: 0.5 },
         }}
       >
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            Test 1 — virtualization + go to row by id / code
-          </Typography>
+        <Stack direction="row" spacing={1.5}>
+          <StatTile label="Rows" value={ALL_PEOPLE.length.toLocaleString()} accent="#6366f1" />
+          <StatTile label="Filters" value={filterModel.items.length} accent="#06b6d4" />
+          <StatTile label="Hidden cols" value={hiddenColumnCount} accent="#a855f7" />
+        </Stack>
+
+        <SectionCard
+          step="TEST 1"
+          icon={<MyLocationRoundedIcon />}
+          title="Virtualization + go to row by id / code"
+          footnote={
+            <React.Fragment>
+              From there the arrow keys move the selection: ↑/↓ select the previous/next row,
+              Home/End and Page&nbsp;Up/Down jump further. Shift+↑/↓ still extends the selection and
+              ctrl/⌘+arrow moves the focus without selecting.
+            </React.Fragment>
+          }
+        >
           <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
             <Box component="form" onSubmit={handleGoTo} sx={{ display: 'flex', gap: 1 }}>
               <TextField
@@ -360,54 +401,66 @@ export default function DataGridTab() {
                 placeholder="e.g. 7421 or P-07421"
                 value={goTo}
                 onChange={(event) => setGoTo(event.target.value)}
-                sx={{ width: 200 }}
+                sx={{ width: 185 }}
               />
               <Button type="submit" variant="contained">
                 Go &amp; select
               </Button>
             </Box>
-            <Button variant="outlined" onClick={() => { setGoTo(String(1 + Math.floor(Math.random() * ALL_PEOPLE.length))); }}>
+            <Button
+              variant="outlined"
+              startIcon={<CasinoRoundedIcon />}
+              onClick={() => {
+                setGoTo(String(1 + Math.floor(Math.random() * ALL_PEOPLE.length)));
+              }}
+            >
               Random id
             </Button>
           </Stack>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            {ALL_PEOPLE.length.toLocaleString()} rows are rendered through the grid&apos;s row/column
-            virtualizer. Press Enter in the field to scroll straight to a row and select it.
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.25 }}>
+            {ALL_PEOPLE.length.toLocaleString()} rows are rendered through the grid&apos;s
+            row/column virtualizer. Press Enter in the field to scroll straight to a row and select
+            it.
           </Typography>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            From there the arrow keys move the selection: ↑/↓ select the previous/next row,
-            Home/End and Page&nbsp;Up/Down jump further. Shift+↑/↓ still extends the selection and
-            ctrl/⌘+arrow moves the focus without selecting.
-          </Typography>
-        </Paper>
+        </SectionCard>
 
-        <Paper variant="outlined" sx={{ p: 2 }}>
-          <Typography variant="subtitle2" gutterBottom>
-            Tests 2–5 — multi filter, column visibility, per-column filter, column reorder
-          </Typography>
+        <SectionCard
+          step="TESTS 2–5"
+          icon={<TuneRoundedIcon />}
+          title="Multi filter, column visibility, per-column filter, reorder"
+          footnote={
+            <React.Fragment>
+              Active filters: <strong>{filterModel.items.length}</strong> (
+              {filterModel.logicOperator ?? 'and'}) · hidden columns:{' '}
+              <strong>{hiddenColumnCount}</strong>. Drag a column header sideways to reorder it; use
+              a header&apos;s ⋮ menu for a single-column filter.
+            </React.Fragment>
+          }
+        >
           <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
             <Button
               variant="outlined"
+              startIcon={<FilterAltRoundedIcon />}
               onClick={() => apiRef.current?.showFilterPanel()}
             >
-              Open filter panel
+              Filter panel
             </Button>
             <Button variant="outlined" onClick={applyMultiFilterPreset}>
               Apply 3 filters (OR)
             </Button>
             <Button
               variant="outlined"
+              startIcon={<ClearRoundedIcon />}
               onClick={() => setFilterModel({ items: [], logicOperator: GridLogicOperator.And })}
             >
-              Clear filters
+              Clear
             </Button>
             <Button
               variant="outlined"
-              onClick={() =>
-                apiRef.current?.showPreferences(GridPreferencePanelsValue.columns)
-              }
+              startIcon={<ViewColumnRoundedIcon />}
+              onClick={() => apiRef.current?.showPreferences(GridPreferencePanelsValue.columns)}
             >
-              Columns visibility
+              Columns
             </Button>
             <FormControlLabel
               control={
@@ -419,46 +472,48 @@ export default function DataGridTab() {
               label="Header filter row"
             />
           </Stack>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-            Active filters: {filterModel.items.length} ({filterModel.logicOperator ?? 'and'}) · hidden
-            columns:{' '}
-            {Object.entries(columnVisibilityModel).filter(([, visible]) => visible === false).length}.
-            Drag a column header sideways to reorder it; use a header&apos;s ⋮ menu for a
-            single-column filter.
-          </Typography>
-        </Paper>
+        </SectionCard>
 
-        <Paper
-          variant="outlined"
-          onDragOver={(event) => {
+        <SectionCard
+          step="TEST 6"
+          icon={<WorkspacesRoundedIcon />}
+          title="Group by dragging a column header here"
+          onDragOver={(event: React.DragEvent<HTMLDivElement>) => {
             event.preventDefault();
             setIsOverDropZone(true);
           }}
           onDragLeave={() => setIsOverDropZone(false)}
-          onDrop={(event) => {
+          onDrop={(event: React.DragEvent<HTMLDivElement>) => {
             event.preventDefault();
             setIsOverDropZone(false);
             addGroupField(draggedFieldRef.current);
             draggedFieldRef.current = null;
           }}
           sx={{
-            p: 2,
             borderStyle: 'dashed',
             borderWidth: 2,
-            transition: 'background-color 120ms, border-color 120ms',
             borderColor: isOverDropZone ? 'primary.main' : 'divider',
-            bgcolor: isOverDropZone ? 'action.hover' : 'transparent',
+            bgcolor: isOverDropZone ? V.primaryA(0.1) : undefined,
+            transform: isOverDropZone ? 'scale(1.012)' : 'none',
+            transition: 'background-color 140ms, border-color 140ms, transform 140ms',
+            // The dashed border is the affordance here; the gradient rule would
+            // read as a solid edge and blunt it.
+            '&::before': { display: 'none' },
           }}
         >
-          <Typography variant="subtitle2" gutterBottom>
-            Test 6 — group by dragging a column header here
-          </Typography>
           <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
             {groupFields.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">
-                Drag the <strong>Favorite color</strong> header into this box to get one collapsible
-                row per colour. Drop more columns for nested groups.
-              </Typography>
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{ alignItems: 'center', color: 'text.secondary' }}
+              >
+                <DragIndicatorRoundedIcon sx={{ fontSize: 18, opacity: 0.7 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Drag the <strong>Favorite color</strong> header into this box to get one
+                  collapsible row per colour. Drop more columns for nested groups.
+                </Typography>
+              </Stack>
             ) : (
               groupFields.map((field, index) => (
                 <Chip
@@ -486,12 +541,16 @@ export default function DataGridTab() {
                 Ungroup all
               </Button>
             )}
+          </Stack>
+
+          <Stack direction="row" spacing={0.75} useFlexGap sx={{ flexWrap: 'wrap', mt: 1.25 }}>
             {GROUPABLE_FIELDS.filter((field) => !groupFields.includes(field)).map((field) => (
               <Tooltip key={field} title="Click as a keyboard/touch alternative to dragging">
                 <Chip size="small" label={`+ ${field}`} onClick={() => addGroupField(field)} />
               </Tooltip>
             ))}
           </Stack>
+
           {isGrouped && (
             <React.Fragment>
               <Stack
@@ -528,7 +587,7 @@ export default function DataGridTab() {
               </Typography>
             </React.Fragment>
           )}
-        </Paper>
+        </SectionCard>
 
         {goToError && (
           <Alert severity="warning" onClose={() => setGoToError(null)}>
@@ -537,7 +596,8 @@ export default function DataGridTab() {
         )}
       </Stack>
 
-      <Box
+      <Paper
+        variant="outlined"
         onDragStartCapture={handleDragStartCapture}
         onKeyDownCapture={handleKeyDownCapture}
         sx={{
@@ -545,6 +605,7 @@ export default function DataGridTab() {
           minWidth: 0,
           minHeight: { xs: 460, md: 0 },
           height: { md: '100%' },
+          overflow: 'hidden',
         }}
       >
         <DataGridPro
@@ -598,10 +659,35 @@ export default function DataGridTab() {
           showToolbar
           sx={{
             height: '100%',
-            '& .MuiDataGrid-row.Mui-selected': { outline: '2px solid', outlineOffset: '-2px' },
+            border: 0,
+            // The Paper already draws the frame and the rounded corners.
+            '--DataGrid-containerBackground': 'transparent',
+            backgroundColor: 'transparent',
+            '& .MuiDataGrid-columnHeaders': { fontWeight: 700 },
+            '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700, letterSpacing: '-0.005em' },
+            '& .MuiDataGrid-toolbarContainer': {
+              px: 1.5,
+              py: 1,
+              borderBottom: '1px solid',
+              borderColor: 'divider',
+            },
+            '& .MuiDataGrid-row:hover': { backgroundColor: V.primaryA(0.06) },
+            '& .MuiDataGrid-row.Mui-selected, & .MuiDataGrid-row.Mui-selected:hover': {
+              backgroundColor: V.primaryA(0.16),
+            },
+            // A left rail on the selected row instead of a full outline — it survives
+            // horizontal scrolling and does not fight the cell focus ring.
+            '& .MuiDataGrid-row.Mui-selected .MuiDataGrid-cell:first-of-type': {
+              boxShadow: `inset 3px 0 0 ${V.primary}`,
+            },
+            '& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within': {
+              outline: `2px solid ${V.primaryA(0.6)}`,
+              outlineOffset: -2,
+            },
+            '& .MuiDataGrid-footerContainer': { borderTop: '1px solid', borderColor: 'divider' },
           }}
         />
-      </Box>
+      </Paper>
     </Box>
   );
 }
