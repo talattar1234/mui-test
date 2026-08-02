@@ -42,6 +42,7 @@ npm run typecheck
 | Per-column filter | Header filter row (toggle), plus each header's ⋮ menu → Filter |
 | Column reorder | Drag any header sideways (Pro) |
 | **Group by dragging a column** | Drag e.g. the *Favorite color* header into the dashed drop zone |
+| **Sort the grouping column** | Once grouped: click the *Group* header, or the *A → Z / Z → A / Unsorted* buttons in the test 6 panel |
 
 ### About grouping
 
@@ -56,6 +57,12 @@ Two implementation details worth knowing:
   zone reads the dragged column from a `dragstart` captured on the grid wrapper — no grid internals.
   The field is kept in a **ref**, not state: `dragstart` and `drop` can arrive without a re-render in
   between, and a state value would still be `null` in the drop handler's closure.
+- The tree-data grouping column ships with `sortable: false` and `disableColumnMenu: true`, but those
+  are ordinary defaults — only `field`, `editable` and `groupable` are forced — so `groupingColDef`
+  turns them back on. The column's `valueGetter` returns each node's `groupingKey`, and the tree
+  sorter applies the comparator level by level, so sorting orders the group rows by their key and
+  re-orders the leaves *inside* each group (by `code`); no row ever leaves its group. With two
+  grouping fields both levels sort (`Yellow › Support`, `Yellow › Sales`, …).
 - When grouped, "go to" first walks up the row's node chain and expands every ancestor group. That
   rebuilds the visible row list asynchronously, so the index lookup and scroll are deferred a frame.
 

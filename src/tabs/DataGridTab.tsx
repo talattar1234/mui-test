@@ -17,6 +17,7 @@ import {
   GridLogicOperator,
   GRID_TREE_DATA_GROUPING_FIELD,
   type GridColDef,
+  type GridEventListener,
   type GridFilterModel,
   type GridSortModel,
   type GridColumnVisibilityModel,
@@ -32,6 +33,18 @@ const ALL_PEOPLE = generatePeople();
 /** Columns offered in the drag-to-group drop zone. */
 const GROUPABLE_FIELDS = ['favoriteColor', 'department', 'country', 'city', 'status', 'active'] as const;
 type GroupableField = (typeof GROUPABLE_FIELDS)[number];
+
+/** Keys after which the newly focused row should also become the selected row. */
+const SELECTION_NAV_KEYS = new Set([
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'Home',
+  'End',
+  'PageUp',
+  'PageDown',
+]);
 
 function ColorSwatch({ value }: { value: FavoriteColor }) {
   return (
@@ -68,6 +81,49 @@ export default function DataGridTab() {
     type: 'include',
     ids: new Set<GridRowId>(),
   });
+
+  /**
+   * Set in the capture phase — i.e. before the grid's own key handler moves the
+   * focus — and read back by the `cellFocusIn` listener below.
+   */
+  const isKeyboardNavRef = React.useRef(false);
+
+  const handleKeyDownCapture = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    // Shift+arrow is the grid's own range selection and ctrl/meta+arrow is the
+    // "move the focus without touching the selection" gesture; leave both alone.
+    isKeyboardNavRef.current =
+      SELECTION_NAV_KEYS.has(event.key) && !event.shiftKey && !event.ctrlKey && !event.metaKey;
+  };
+
+  /**
+   * Arrow keys only move the focused cell out of the box. Mirroring the focus
+   * onto the selection makes the selected row walk with the arrows, while
+   * mouse selection (including ctrl+click) keeps going through the grid.
+   */
+  React.useEffect(() => {
+    const api = apiRef.current;
+    if (!api) {
+      return undefined;
+    }
+
+    const handleCellFocusIn: GridEventListener<'cellFocusIn'> = (params) => {
+      if (!isKeyboardNavRef.current) {
+        return;
+      }
+      isKeyboardNavRef.current = false;
+
+      if (api.getRowNode(params.id)?.type === 'group') {
+        // Group rows are not selectable (see `isRowSelectable`); keeping the old
+        // selection would strand it on a row the user has navigated away from.
+        setRowSelectionModel({ type: 'include', ids: new Set<GridRowId>() });
+        return;
+      }
+
+      api.selectRow(params.id, true, true);
+    };
+
+    return api.subscribeEvent('cellFocusIn', handleCellFocusIn);
+  }, [apiRef]);
 
   const [sortModel, setSortModel] = React.useState<GridSortModel>([]);
 
@@ -318,6 +374,11 @@ export default function DataGridTab() {
             {ALL_PEOPLE.length.toLocaleString()} rows are rendered through the grid&apos;s row/column
             virtualizer. Press Enter in the field to scroll straight to a row and select it.
           </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            From there the arrow keys move the selection: ↑/↓ select the previous/next row,
+            Home/End and Page&nbsp;Up/Down jump further. Shift+↑/↓ still extends the selection and
+            ctrl/⌘+arrow moves the focus without selecting.
+          </Typography>
         </Paper>
 
         <Paper variant="outlined" sx={{ p: 2 }}>
@@ -478,6 +539,7 @@ export default function DataGridTab() {
 
       <Box
         onDragStartCapture={handleDragStartCapture}
+        onKeyDownCapture={handleKeyDownCapture}
         sx={{
           flex: 1,
           minWidth: 0,
