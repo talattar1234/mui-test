@@ -103,87 +103,136 @@ export default function TreeViewTab() {
     setGoTo(TREE.leafIds[Math.floor(Math.random() * TREE.leafIds.length)]);
   };
 
+  const expandAll = () => {
+    // Every branch open means every node is a row. That is fine while virtualized
+    // (~20 rows mounted) but would mount 22k DOM rows with virtualization off.
+    if (!virtualization) {
+      setMessage(
+        `Expand all would mount all ${TREE.allIds.length.toLocaleString()} rows at once with ` +
+          'virtualization off, which freezes the tab. Turn virtualization back on first.',
+      );
+      return;
+    }
+    setExpandedItems(TREE.branchIds);
+    setMessage(
+      `Expanded all ${TREE.branchIds.length.toLocaleString()} branches — ` +
+        `${TREE.allIds.length.toLocaleString()} visible rows.`,
+    );
+  };
+
   return (
-    <Stack spacing={2} sx={{ height: '100%' }}>
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="subtitle2" gutterBottom>
-          Test 1 — virtualized tree + go to item by id
-        </Typography>
-        <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <Box component="form" onSubmit={handleGoTo} sx={{ display: 'flex', gap: 1 }}>
+    <Stack
+      direction={{ xs: 'column', md: 'row' }}
+      spacing={2}
+      sx={{ height: '100%', minHeight: 0, alignItems: 'stretch' }}
+    >
+      {/* Left column — the test controls. Scrolls on its own so the tree keeps the full height. */}
+      <Stack
+        spacing={2}
+        sx={{
+          width: { xs: '100%', md: 420 },
+          flexShrink: 0,
+          minHeight: 0,
+          overflowY: 'auto',
+        }}
+      >
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Test 1 — virtualized tree + go to item by id
+          </Typography>
+          <Stack
+            direction="row"
+            spacing={1}
+            useFlexGap
+            sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+          >
+            <Box component="form" onSubmit={handleGoTo} sx={{ display: 'flex', gap: 1 }}>
+              <TextField
+                size="small"
+                label="Item id"
+                placeholder="e.g. 7.2.9.5"
+                value={goTo}
+                onChange={(event) => setGoTo(event.target.value)}
+                sx={{ width: 200 }}
+              />
+              <Button type="submit" variant="contained">
+                Go &amp; select
+              </Button>
+            </Box>
+            <Button variant="outlined" onClick={randomLeaf}>
+              Random deep id
+            </Button>
+            <Button variant="outlined" onClick={expandAll}>
+              Expand all
+            </Button>
+            <Button variant="outlined" onClick={() => setExpandedItems([])}>
+              Collapse all
+            </Button>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={virtualization}
+                  onChange={(event) => setVirtualization(event.target.checked)}
+                />
+              }
+              label="Virtualization"
+            />
+          </Stack>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            {TREE.allIds.length.toLocaleString()} nodes across 4 levels ·{' '}
+            {visibleCount.toLocaleString()} currently rendered rows · selected:{' '}
+            {selectedItems ?? 'none'}
+          </Typography>
+        </Paper>
+
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Test 3 — flip every status colour at X Hz
+          </Typography>
+          <Stack
+            direction="row"
+            spacing={2}
+            useFlexGap
+            sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+          >
+            <ToggleButton
+              value="run"
+              selected={running}
+              onChange={() => setRunning((prev) => !prev)}
+              color="primary"
+            >
+              {running ? `Stop (${hz} Hz)` : 'Start colour flipping'}
+            </ToggleButton>
             <TextField
               size="small"
-              label="Item id"
-              placeholder="e.g. 7.2.9.5"
-              value={goTo}
-              onChange={(event) => setGoTo(event.target.value)}
-              sx={{ width: 200 }}
+              type="number"
+              label="Frequency (Hz)"
+              value={hz}
+              onChange={(event) => setHz(Number(event.target.value) || 0.1)}
+              slotProps={{ htmlInput: { min: 0.1, max: 60, step: 0.5 } }}
+              sx={{ width: 160 }}
             />
-            <Button type="submit" variant="contained">
-              Go &amp; select
-            </Button>
-          </Box>
-          <Button variant="outlined" onClick={randomLeaf}>
-            Random deep id
-          </Button>
-          <Button variant="outlined" onClick={() => setExpandedItems([])}>
-            Collapse all
-          </Button>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={virtualization}
-                onChange={(event) => setVirtualization(event.target.checked)}
-              />
-            }
-            label="Virtualization"
-          />
-        </Stack>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-          {TREE.allIds.length.toLocaleString()} nodes across 4 levels ·{' '}
-          {visibleCount.toLocaleString()} currently rendered rows · selected:{' '}
-          {selectedItems ?? 'none'}
-        </Typography>
-      </Paper>
+            <Chip label={`ticks: ${version}`} size="small" />
+          </Stack>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            Statuses live in an external store, so a tick re-renders only the dots that are actually
+            mounted (~20 of {TREE.allIds.length.toLocaleString()}) instead of the whole tree. Clamped
+            to 0.1–60 Hz.
+          </Typography>
+        </Paper>
 
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="subtitle2" gutterBottom>
-          Test 3 — flip every status colour at X Hz
-        </Typography>
-        <Stack direction="row" spacing={2} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
-          <ToggleButton
-            value="run"
-            selected={running}
-            onChange={() => setRunning((prev) => !prev)}
-            color="primary"
-          >
-            {running ? `Stop (${hz} Hz)` : 'Start colour flipping'}
-          </ToggleButton>
-          <TextField
-            size="small"
-            type="number"
-            label="Frequency (Hz)"
-            value={hz}
-            onChange={(event) => setHz(Number(event.target.value) || 0.1)}
-            slotProps={{ htmlInput: { min: 0.1, max: 60, step: 0.5 } }}
-            sx={{ width: 160 }}
-          />
-          <Chip label={`ticks: ${version}`} size="small" />
-        </Stack>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-          Statuses live in an external store, so a tick re-renders only the dots that are actually
-          mounted (~20 of {TREE.allIds.length.toLocaleString()}) instead of the whole tree. Clamped
-          to 0.1–60 Hz.
-        </Typography>
-      </Paper>
+        {message && (
+          <Alert severity="info" onClose={() => setMessage(null)}>
+            {message}
+          </Alert>
+        )}
+      </Stack>
 
-      {message && (
-        <Alert severity="info" onClose={() => setMessage(null)}>
-          {message}
-        </Alert>
-      )}
-
-      <Paper variant="outlined" sx={{ flex: 1, minHeight: 420, p: 1, overflow: 'hidden' }}>
+      {/* Right column — the tree, filling the whole available height. */}
+      <Paper
+        variant="outlined"
+        sx={{ flex: 1, minWidth: 0, minHeight: 420, p: 1, overflow: 'hidden' }}
+      >
         <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
           Test 2 — single active item (no checkboxes) · name on the left, status dot and ⋮ menu on
           the right

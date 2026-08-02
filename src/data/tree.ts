@@ -31,6 +31,8 @@ export interface GeneratedTree {
   /** id -> label, for the "go to" lookup and the breadcrumb. */
   labels: Map<string, string>;
   leafIds: string[];
+  /** Every node that has children — the full expansion state for "expand all". */
+  branchIds: string[];
 }
 
 /**
@@ -48,6 +50,7 @@ export function generateTree(
   const ancestors = new Map<string, string[]>();
   const labels = new Map<string, string>();
   const leafIds: string[] = [];
+  const branchIds: string[] = [];
 
   const build = (parentPath: string, depth: number, chain: string[]): TreeNode[] => {
     const count = childrenPerLevel[depth];
@@ -65,6 +68,8 @@ export function generateTree(
       labels.set(id, label);
       if (isLeaf) {
         leafIds.push(id);
+      } else {
+        branchIds.push(id);
       }
 
       nodes.push({
@@ -84,10 +89,11 @@ export function generateTree(
     allIds.push(id);
     ancestors.set(id, []);
     labels.set(id, label);
+    branchIds.push(id);
     items.push({ id, label, children: build(id, 1, [id]) });
   }
 
-  return { items, allIds, ancestors, labels, leafIds };
+  return { items, allIds, ancestors, labels, leafIds, branchIds };
 }
 
 /**
