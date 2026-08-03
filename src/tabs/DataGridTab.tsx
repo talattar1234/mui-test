@@ -64,6 +64,55 @@ const SELECTION_NAV_KEYS = new Set([
   'PageDown',
 ]);
 
+/**
+ * Everything below is defined once, at module scope, instead of inside the
+ * component. A selection click re-renders `DataGridTab`, and any object or
+ * function prop rebuilt during that render is a new identity for the grid —
+ * which makes it re-render its whole subtree (column headers, the 24 header
+ * filter inputs and every visible row) rather than just the two rows whose
+ * selected state actually changed.
+ */
+const getRowId = (row: Person) => row.id;
+
+/**
+ * Tree data defaults to `{ parents: true, descendants: true }`, so clicking a
+ * group row would select every person underneath it (and selecting all the
+ * people in a group would tick the group). Both cascades are off here.
+ */
+const ROW_SELECTION_PROPAGATION = { parents: false, descendants: false } as const;
+
+const GRID_SX = {
+  height: '100%',
+  border: 0,
+  // The Paper already draws the frame and the rounded corners.
+  '--DataGrid-containerBackground': 'transparent',
+  backgroundColor: 'transparent',
+  '& .MuiDataGrid-columnHeaders': { fontWeight: 700 },
+  '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700, letterSpacing: '-0.005em' },
+  '& .MuiDataGrid-toolbarContainer': {
+    px: 1.5,
+    py: 1,
+    borderBottom: '1px solid',
+    borderColor: 'divider',
+  },
+  '& .MuiDataGrid-row:hover': { backgroundColor: V.primaryA(0.06) },
+  '& .MuiDataGrid-row.Mui-selected, & .MuiDataGrid-row.Mui-selected:hover': {
+    backgroundColor: V.primaryA(0.16),
+  },
+  // A left rail on the selected row instead of a full outline — it survives
+  // horizontal scrolling and does not fight the cell focus ring.
+  '& .MuiDataGrid-row.Mui-selected .MuiDataGrid-cell:first-of-type': {
+    boxShadow: `inset 3px 0 0 ${V.primary}`,
+  },
+  '& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within': {
+    outline: `2px solid ${V.primaryA(0.6)}`,
+    outlineOffset: -2,
+  },
+  '& .MuiDataGrid-footerContainer': { borderTop: '1px solid', borderColor: 'divider' },
+} as const;
+
+const EMPTY_SELECTION: GridRowSelectionModel = { type: 'include', ids: new Set<GridRowId>() };
+
 /** A dot + label pair, used for both the colour and the status columns. */
 function Swatch({ color, label }: { color: string; label: string }) {
   return (
@@ -96,10 +145,15 @@ export default function DataGridTab() {
   const draggedFieldRef = React.useRef<string | null>(null);
   const [isOverDropZone, setIsOverDropZone] = React.useState(false);
   const [headerFilters, setHeaderFilters] = React.useState(true);
-  const [rowSelectionModel, setRowSelectionModel] = React.useState<GridRowSelectionModel>({
-    type: 'include',
-    ids: new Set<GridRowId>(),
-  });
+
+  /*
+    The selection is deliberately *not* lifted into React state here. Nothing in
+    this tab renders from it, so a controlled `rowSelectionModel` would only buy
+    a full re-render of this component — and of the grid — on every click, plus a
+    second render pass from the grid syncing the controlled value back. Writes go
+    through the apiRef instead, and the grid's own store updates just the rows
+    that changed.
+  */
 
   /**
    * Set in the capture phase — i.e. before the grid's own key handler moves the
@@ -134,7 +188,7 @@ export default function DataGridTab() {
       if (api.getRowNode(params.id)?.type === 'group') {
         // Group rows are not selectable (see `isRowSelectable`); keeping the old
         // selection would strand it on a row the user has navigated away from.
-        setRowSelectionModel({ type: 'include', ids: new Set<GridRowId>() });
+        api.setRowSelectionModel(EMPTY_SELECTION);
         return;
       }
 
@@ -239,6 +293,39 @@ export default function DataGridTab() {
 
   const rows = React.useMemo<GridRowsProp<Person>>(() => ALL_PEOPLE, []);
 
+  const groupingColDef = React.useMemo(
+    () => ({
+      headerName: groupFields.length ? `Group: ${groupFields.join(' › ')}` : 'Group',
+      width: 280,
+      /*
+        The tree-data grouping column ships with `sortable: false` and
+        `disableColumnMenu: true`, but those are plain defaults (only `field`,
+        `editable` and `groupable` are forced), so they can be overridden here.
+
+        Its `valueGetter` returns each node's `groupingKey`, and the tree
+        sorter runs the comparator level by level, so sorting this column
+        orders the group rows by their key and re-orders the leaves *inside*
+        each group (by `code`) without ever moving a row out of its group.
+      */
+      sortable: true,
+      disableColumnMenu: false,
+    }),
+    [groupFields],
+  );
+
+  /**
+   * The group rows are placeholders the grid generates from the tree path, not
+   * people, so they are not selectable at all — clicking one only expands it.
+   *
+   * Left `undefined` unless grouping is on: without tree data there are no group
+   * rows to reject, and an absent `isRowSelectable` lets the grid skip the
+   * per-row selectability check entirely.
+   */
+  const isRowSelectable = React.useCallback(
+    (params: { id: GridRowId }) => apiRef.current?.getRowNode(params.id)?.type !== 'group',
+    [apiRef],
+  );
+
   const addGroupField = (field: string | null) => {
     if (!field) {
       return;
@@ -298,7 +385,7 @@ export default function DataGridTab() {
 
       setGoToError(null);
       apiRef.current?.scrollToIndexes({ rowIndex, colIndex: 0 });
-      setRowSelectionModel({ type: 'include', ids: new Set<GridRowId>([rowId]) });
+      apiRef.current?.setRowSelectionModel({ type: 'include', ids: new Set<GridRowId>([rowId]) });
       // Move focus so the selected row is also the keyboard-active row.
       apiRef.current?.setCellFocus(rowId, 'code');
     };
@@ -616,29 +703,14 @@ export default function DataGridTab() {
           apiRef={apiRef}
           rows={rows}
           columns={columns}
-          getRowId={(row) => row.id}
+          getRowId={getRowId}
           // --- virtualization is on by default; these keep it honest ---
           rowHeight={40}
           columnBufferPx={150}
           // --- grouping via tree data (Pro) ---
           treeData={isGrouped}
           getTreeDataPath={getTreeDataPath}
-          groupingColDef={{
-            headerName: groupFields.length ? `Group: ${groupFields.join(' › ')}` : 'Group',
-            width: 280,
-            /*
-              The tree-data grouping column ships with `sortable: false` and
-              `disableColumnMenu: true`, but those are plain defaults (only `field`,
-              `editable` and `groupable` are forced), so they can be overridden here.
-
-              Its `valueGetter` returns each node's `groupingKey`, and the tree
-              sorter runs the comparator level by level, so sorting this column
-              orders the group rows by their key and re-orders the leaves *inside*
-              each group (by `code`) without ever moving a row out of its group.
-            */
-            sortable: true,
-            disableColumnMenu: false,
-          }}
+          groupingColDef={groupingColDef}
           sortModel={sortModel}
           onSortModelChange={setSortModel}
           defaultGroupingExpansionDepth={0}
@@ -649,47 +721,12 @@ export default function DataGridTab() {
           // --- column visibility ---
           columnVisibilityModel={columnVisibilityModel}
           onColumnVisibilityModelChange={setColumnVisibilityModel}
-          // --- selection ---
-          rowSelectionModel={rowSelectionModel}
-          onRowSelectionModelChange={setRowSelectionModel}
-          // Tree data defaults to `{ parents: true, descendants: true }`, so clicking a
-          // group row would select every person underneath it (and selecting all the
-          // people in a group would tick the group). Both cascades are off here.
-          rowSelectionPropagation={{ parents: false, descendants: false }}
-          // The group rows are placeholders the grid generates from the tree path, not
-          // people, so they are not selectable at all — clicking one only expands it.
-          isRowSelectable={(params) => apiRef.current?.getRowNode(params.id)?.type !== 'group'}
+          // --- selection (uncontrolled on purpose — see the note above) ---
+          rowSelectionPropagation={ROW_SELECTION_PROPAGATION}
+          isRowSelectable={isGrouped ? isRowSelectable : undefined}
           // --- toolbar with quick filter / column & filter buttons ---
           showToolbar
-          sx={{
-            height: '100%',
-            border: 0,
-            // The Paper already draws the frame and the rounded corners.
-            '--DataGrid-containerBackground': 'transparent',
-            backgroundColor: 'transparent',
-            '& .MuiDataGrid-columnHeaders': { fontWeight: 700 },
-            '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 700, letterSpacing: '-0.005em' },
-            '& .MuiDataGrid-toolbarContainer': {
-              px: 1.5,
-              py: 1,
-              borderBottom: '1px solid',
-              borderColor: 'divider',
-            },
-            '& .MuiDataGrid-row:hover': { backgroundColor: V.primaryA(0.06) },
-            '& .MuiDataGrid-row.Mui-selected, & .MuiDataGrid-row.Mui-selected:hover': {
-              backgroundColor: V.primaryA(0.16),
-            },
-            // A left rail on the selected row instead of a full outline — it survives
-            // horizontal scrolling and does not fight the cell focus ring.
-            '& .MuiDataGrid-row.Mui-selected .MuiDataGrid-cell:first-of-type': {
-              boxShadow: `inset 3px 0 0 ${V.primary}`,
-            },
-            '& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within': {
-              outline: `2px solid ${V.primaryA(0.6)}`,
-              outlineOffset: -2,
-            },
-            '& .MuiDataGrid-footerContainer': { borderTop: '1px solid', borderColor: 'divider' },
-          }}
+          sx={GRID_SX}
         />
       </Paper>
     </Box>
