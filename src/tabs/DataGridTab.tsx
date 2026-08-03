@@ -373,6 +373,10 @@ export default function DataGridTab() {
           minHeight: 0,
           overflowY: { md: 'auto' },
           pr: { md: 0.5 },
+          // The cards are flex items of this column, so they would shrink below
+          // their content height instead of making the column scroll — and each
+          // card clips its own overflow, so the footnotes would just disappear.
+          '& > *': { flexShrink: 0 },
         }}
       >
         <Stack direction="row" spacing={1.5}>

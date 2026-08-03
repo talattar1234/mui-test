@@ -5,7 +5,6 @@ import Typography from '@mui/material/Typography';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
 import Box from '@mui/material/Box';
-import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
 import TableChartRoundedIcon from '@mui/icons-material/TableChartRounded';
@@ -143,14 +142,6 @@ export default function App() {
           ))}
         </Tabs>
       </AppBar>
-
-      {!hasLicenseKey && (
-        <Alert severity="warning" square sx={{ borderRadius: 0, borderInline: 0 }}>
-          <code>VITE_MUI_LICENSE_KEY</code> is not set, so the Pro components render a watermark.
-          Add it to <code>.env.local</code> locally, or as a Vercel environment variable, then
-          restart the dev server.
-        </Alert>
-      )}
 
       {/*
         Both tabs are unmounted when inactive on purpose — it keeps the grid's and the
