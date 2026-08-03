@@ -8,8 +8,9 @@ import App from './App';
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    {/* `defaultMode="system"` matches the inline bootstrap script in index.html. */}
-    <ThemeProvider theme={theme} defaultMode="system">
+    {/* Dark is the default, and the only alternative is light — no system mode.
+        `defaultMode` matches the inline bootstrap script in index.html. */}
+    <ThemeProvider theme={theme} defaultMode="dark">
       <CssBaseline enableColorScheme />
       <App />
     </ThemeProvider>

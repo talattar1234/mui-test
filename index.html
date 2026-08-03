@@ -3,40 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#f4f5fb" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#080a12" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#080a12" />
     <title>MUI X Pro Testbed</title>
     <style>
       /*
         Painted before the bundle parses, so the first frame is already the right
         colour instead of a white flash on the way into dark mode. Values mirror
-        `palette.background.default` in src/theme.ts.
+        `palette.background.default` in src/theme.ts. Dark is the default, so it
+        is the bare `html` rule — light only applies once opted into.
       */
-      html { background-color: #f4f5fb; }
-      html[data-mui-color-scheme='dark'] { background-color: #080a12; }
-      @media (prefers-color-scheme: dark) {
-        html:not([data-mui-color-scheme='light']) { background-color: #080a12; }
-      }
+      html { background-color: #080a12; }
+      html[data-mui-color-scheme='light'] { background-color: #f4f5fb; }
     </style>
     <script>
       /*
         Replays the stored colour-mode choice onto <html> before first paint.
-        Mirrors what MUI's InitColorSchemeScript does; the keys and the attribute
-        name are MUI's defaults, which `useColorScheme` writes to on every change.
+        Only 'dark' and 'light' exist; anything else (including the 'system' value
+        older builds could store) collapses to dark, and is rewritten so MUI's own
+        localStorage read agrees. The key and attribute name are MUI's defaults,
+        which `useColorScheme` writes to on every change.
       */
       (function () {
         try {
-          var mode = localStorage.getItem('mui-mode') || 'system';
-          var scheme =
-            mode === 'system'
-              ? window.matchMedia('(prefers-color-scheme: dark)').matches
-                ? 'dark'
-                : 'light'
-              : mode;
-          document.documentElement.setAttribute('data-mui-color-scheme', scheme);
+          var mode = localStorage.getItem('mui-mode');
+          if (mode !== 'light' && mode !== 'dark') {
+            mode = 'dark';
+            localStorage.setItem('mui-mode', mode);
+          }
+          document.documentElement.setAttribute('data-mui-color-scheme', mode);
         } catch (error) {
-          /* private mode / storage disabled — fall back to the CSS media query above */
+          /* private mode / storage disabled — the CSS above already defaults to dark */
         }
       })();
     </script>

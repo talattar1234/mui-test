@@ -4,17 +4,16 @@ import Skeleton from '@mui/material/Skeleton';
 import { useColorScheme } from '@mui/material/styles';
 import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded';
 import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded';
-import SettingsBrightnessRoundedIcon from '@mui/icons-material/SettingsBrightnessRounded';
 import { V } from '../theme';
 
 const MODES = [
   { value: 'light', label: 'Light', Icon: LightModeRoundedIcon },
-  { value: 'system', label: 'Follow the system', Icon: SettingsBrightnessRoundedIcon },
   { value: 'dark', label: 'Dark', Icon: DarkModeRoundedIcon },
 ] as const;
 
 /**
- * Segmented light / system / dark control.
+ * Segmented light / dark control. There is no system option — dark is the
+ * default and light is the single opt-out.
  *
  * The selected pill is a single absolutely-positioned element that slides, so
  * switching modes animates instead of blinking. `useColorScheme` writes the
@@ -26,10 +25,12 @@ export default function ColorModeToggle() {
 
   // `mode` is undefined until the provider has read localStorage on the client.
   if (!mode) {
-    return <Skeleton variant="rounded" width={106} height={34} sx={{ borderRadius: 999 }} />;
+    return <Skeleton variant="rounded" width={70} height={34} sx={{ borderRadius: 999 }} />;
   }
 
-  const activeIndex = MODES.findIndex((entry) => entry.value === mode);
+  // Only 'light' and 'dark' are offered; treat anything else as dark, the default.
+  const activeMode = mode === 'light' ? 'light' : 'dark';
+  const activeIndex = MODES.findIndex((entry) => entry.value === activeMode);
 
   return (
     <Box
@@ -65,7 +66,7 @@ export default function ColorModeToggle() {
         })}
       />
       {MODES.map(({ value, label, Icon }) => {
-        const selected = mode === value;
+        const selected = activeMode === value;
         return (
           <Tooltip key={value} title={label} disableInteractive>
             <Box
